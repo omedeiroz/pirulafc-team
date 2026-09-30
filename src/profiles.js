@@ -2,6 +2,9 @@
 const crypto = require('crypto');
 const express = require('express');
 const rank = require('./rank');
+const actstats = require('./actstats');
+
+const REFRESH_COOLDOWN = 15 * 1000;
 
 const ROLE_OPTIONS = ['Duelista', 'Controlador', 'Sentinela', 'Iniciador', 'Flex'];
 const MAX_ROLES = 2;
@@ -87,11 +90,38 @@ module.exports = function profiles({ db, save, files, users, roleOf, agentNames,
     res.json(publicProfile(req.user));
   }));
 
+  const riotOf = (username) => {
+    const p = db.profiles[username];
+    return p?.riotId ? { riotId: p.riotId, region: p.region || 'br' } : null;
+  };
+
   // Elo atual/pico pelo Riot ID do perfil (HenrikDev, cache de 10 min).
   router.get('/rank/:username', wrap(async (req, res) => {
-    const p = db.profiles[req.params.username];
-    if (!p?.riotId) return res.json({ linked: false });
-    res.json({ linked: true, ...(await rank.getRank({ riotId: p.riotId, region: p.region || 'br' })) });
+    const riot = riotOf(req.params.username);
+    if (!riot) return res.json({ linked: false });
+    res.json({ linked: true, ...(await rank.getRank(riot)) });
+  }));
+
+  // Ranked do ato atual: K/D, KDA, WR, HS%, ACS, ADR, agente mais jogado (cache de 10 min).
+  router.get('/act-stats/:username', wrap(async (req, res) => {
+    const riot = riotOf(req.params.username);
+    if (!riot) return res.json({ linked: false });
+    res.json({ linked: true, ...(await actstats.getActStats(riot)) });
+  }));
+
+  // Botão "Atualizar" do próprio perfil: ignora o cache. Espera de 15 s entre atualizações por pessoa.
+  const lastRefresh = new Map();
+  router.post('/profiles/me/riot-refresh', wrap(async (req, res) => {
+    const riot = riotOf(req.user);
+    if (!riot) return res.status(400).json({ error: 'Vincule seu Riot ID primeiro' });
+    const wait = REFRESH_COOLDOWN - (Date.now() - (lastRefresh.get(req.user) || 0));
+    if (wait > 0) {
+      res.setHeader('Retry-After', Math.ceil(wait / 1000));
+      return res.status(429).json({ error: `Aguarde ${Math.ceil(wait / 1000)}s para atualizar de novo`, retryInMs: wait });
+    }
+    lastRefresh.set(req.user, Date.now());
+    const [rankData, act] = await Promise.all([rank.getRank(riot, true), actstats.getActStats(riot, true)]);
+    res.json({ rank: { linked: true, ...rankData }, act: { linked: true, ...act }, retryInMs: REFRESH_COOLDOWN });
   }));
 
   // Upload da foto/banner: o corpo é o arquivo bruto (o front já redimensiona antes de mandar).

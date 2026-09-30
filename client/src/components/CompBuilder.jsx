@@ -6,7 +6,8 @@ export const emptySlots = () => Array.from({ length: 5 }, () => ({ agent: '', pl
 
 // Montador de comp: 5 slots (agente + player). `draft` é controlado pelo pai.
 // isAdmin: confirma a comp padrão. Os outros só enviam sugestão (onSavePreset).
-export default function CompBuilder({ draft, setDraft, onConfirm, onSavePreset, busy, isAdmin }) {
+// editingName: nome da sugestão carregada que a pessoa pode editar (mostra "Salvar alterações").
+export default function CompBuilder({ draft, setDraft, onConfirm, onSavePreset, onUpdateSuggestion, editingName, busy, isAdmin }) {
   const { agents, players, role } = useData();
   const { slots, active } = draft;
 
@@ -16,6 +17,8 @@ export default function CompBuilder({ draft, setDraft, onConfirm, onSavePreset, 
   const ready = picked.length === 5 && chosen.length === 5 && dupPlayers.size === 0;
   const roleCount = Object.fromEntries(ROLES.map((r) => [r, picked.filter((a) => role(a) === r).length]));
   const bench = players.filter((p) => !chosen.includes(p.username));
+
+  const canSaveSuggestion = picked.length === 5 && dupPlayers.size === 0;
 
   // O que falta para poder confirmar (mostrado ao lado do botão).
   const missing = [
@@ -97,20 +100,20 @@ export default function CompBuilder({ draft, setDraft, onConfirm, onSavePreset, 
       </div>
 
       <div className="row">
-        <button className="btn-ghost" onClick={() => update({ slots: emptySlots(), active: 0, source: '', name: '', notes: '' })}>Limpar</button>
+        <button className="btn-ghost" onClick={() => update({ slots: emptySlots(), active: 0, source: '', name: '', notes: '', suggestionId: null })}>Limpar</button>
         {draft.source && <span className="small muted">Base: {draft.source}</span>}
         <span className="spacer" />
         {missing.length > 0 && <span className="small" style={{ color: 'var(--yellow)' }}>Falta: {missing.join(' · ')}</span>}
-        {isAdmin ? (
-          <>
-            <button disabled={picked.length !== 5 || dupPlayers.size > 0 || busy} onClick={onSavePreset}>Salvar nas sugestões</button>
-            <button className="btn-primary" disabled={!ready || busy} onClick={onConfirm}>Confirmar comp padrão</button>
-          </>
-        ) : (
-          <button className="btn-primary" disabled={picked.length !== 5 || dupPlayers.size > 0 || busy} onClick={onSavePreset}>
-            Enviar sugestão
+        {editingName && (
+          <button className={isAdmin ? '' : 'btn-primary'} disabled={!canSaveSuggestion || busy} onClick={onUpdateSuggestion}
+            title={`Sobrescreve a sugestão "${editingName}" com o que está no montador`}>
+            Salvar alterações em "{editingName}"
           </button>
         )}
+        <button className={!isAdmin && !editingName ? 'btn-primary' : ''} disabled={!canSaveSuggestion || busy} onClick={onSavePreset}>
+          {editingName ? 'Salvar como nova' : isAdmin ? 'Salvar nas sugestões' : 'Enviar sugestão'}
+        </button>
+        {isAdmin && <button className="btn-primary" disabled={!ready || busy} onClick={onConfirm}>Confirmar comp padrão</button>}
       </div>
     </div>
   );

@@ -84,12 +84,13 @@ export default function MapDetail() {
   };
 
   // Carrega no montador. Se a sugestão já tem players, usa; senão sugere pelo histórico.
-  const loadIntoBuilder = (agents, source, name = '', slots = null, notes = '') => {
+  // suggestionId: quando vem de uma sugestão, para poder "Salvar alterações" nela depois.
+  const loadIntoBuilder = (agents, source, name = '', slots = null, notes = '', suggestionId = null) => {
     const hasPlayers = slots?.some((s) => s.player);
     const ordered = hasPlayers
       ? [...slots].sort((a, b) => ROLES.indexOf(role(a.agent)) - ROLES.indexOf(role(b.agent))).map((s) => ({ ...s }))
       : suggestPlayers(byRole(agents), allHistory || [], current?.slots);
-    setDraft({ slots: ordered, active: 0, source, name, notes });
+    setDraft({ slots: ordered, active: 0, source, name, notes, suggestionId });
     scrollTo(builderRef);
     notify(isAdmin ? 'Comp carregada. Confira os players e confirme.' : 'Comp carregada. Ajuste e envie como sugestão.');
   };
@@ -123,23 +124,57 @@ export default function MapDetail() {
     }
   };
 
+  const suggestionBody = () => ({
+    name: draft.name || (isAdmin ? 'Comp do time' : `Sugestão de ${me.name}`),
+    notes: draft.notes,
+    slots: draft.slots.map((s) => ({ agent: s.agent, player: s.player })),
+  });
+
+  const afterSuggestionSaved = (msg, saved) => {
+    notify(msg);
+    custom.reload();
+    setTab('custom');
+    if (saved) setDraft((d) => ({ ...d, suggestionId: saved.id, name: saved.name }));
+  };
+
+  // Salvar como nova sugestão. Se o nome já existe e a pessoa pode editar aquela, oferece substituir.
   const savePreset = async () => {
     setBusy(true);
     try {
-      await api.post(`/api/maps/${id}/custom-comps`, {
-        name: draft.name || (isAdmin ? 'Comp do time' : `Sugestão de ${me.name}`),
-        notes: draft.notes,
-        slots: draft.slots.map((s) => ({ agent: s.agent, player: s.player })),
-      });
-      notify(isAdmin ? 'Comp salva nas sugestões' : `Sugestão enviada! ${adminNames} decide se vira a padrão.`);
-      custom.reload();
-      setTab('custom');
+      const saved = await api.post(`/api/maps/${id}/custom-comps`, suggestionBody());
+      afterSuggestionSaved(isAdmin ? 'Comp salva nas sugestões' : `Sugestão enviada! ${adminNames} decide se vira a padrão.`, saved);
+    } catch (e) {
+      if (e.status === 409 && e.data?.canOverwrite && (await confirm(`${e.message} Substituir pelas alterações que você fez?`))) {
+        try {
+          const saved = await api.put(`/api/custom-comps/${e.data.conflictId}`, suggestionBody());
+          afterSuggestionSaved(`"${saved.name}" atualizada`, saved);
+        } catch (e2) {
+          notify(e2.message, true);
+        }
+      } else {
+        notify(e.message, true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Salvar alterações na sugestão que foi carregada no montador.
+  const updateSuggestion = async () => {
+    setBusy(true);
+    try {
+      const saved = await api.put(`/api/custom-comps/${draft.suggestionId}`, suggestionBody());
+      afterSuggestionSaved(`"${saved.name}" atualizada`, saved);
     } catch (e) {
       notify(e.message, true);
     } finally {
       setBusy(false);
     }
   };
+
+  // Sugestão carregada no montador e que esta pessoa pode editar (quem criou ou admin).
+  const editingSuggestion = draft.suggestionId && custom.data?.find((c) => c.id === draft.suggestionId);
+  const canEditLoaded = !!editingSuggestion && (isAdmin || editingSuggestion.createdBy === me.username);
 
   const scopeLabel = scope === 'recent' ? 'Meta atual (VCT)' : scope === 'season' ? 'Temporada VCT'
     : events.data?.find((e) => String(e.id) === scope)?.title || 'VCT';
@@ -253,12 +288,14 @@ export default function MapDetail() {
                         </div>
                         {c.notes && <div className="small muted" style={{ marginTop: 2 }}>{c.notes}</div>}
                       </div>
-                      <span className="small muted">por {playerName(c.createdBy)} · {fmtDate(c.createdAt)}</span>
+                      <span className="small muted">
+                        {c.fromDefault ? 'Já foi padrão' : 'por'} {c.fromDefault ? `· ${fmtDate(c.createdAt)}` : `${playerName(c.createdBy)} · ${fmtDate(c.createdAt)}`}
+                      </span>
                       {inUse ? <span className="badge on">Em uso</span> : (
                         <>
                           {isAdmin && full && <button className="btn-sm btn-primary" onClick={() => setAsDefault({ ...c, slots })}>Definir como padrão</button>}
-                          <button className="btn-sm" onClick={() => loadIntoBuilder(c.agents, `Sugestão: ${c.name}`, c.name, slots, c.notes || '')}>
-                            {isAdmin ? 'Editar' : 'Usar'}
+                          <button className="btn-sm" onClick={() => loadIntoBuilder(c.agents, `Sugestão: ${c.name}`, c.name, slots, c.notes || '', c.id)}>
+                            {isAdmin || c.createdBy === me.username ? 'Editar' : 'Usar'}
                           </button>
                         </>
                       )}
@@ -296,7 +333,8 @@ export default function MapDetail() {
         </div>
         <div className="card">
           <CompBuilder draft={draft} setDraft={setDraft} busy={busy} isAdmin={isAdmin}
-            onConfirm={confirmComp} onSavePreset={savePreset} />
+            onConfirm={confirmComp} onSavePreset={savePreset}
+            editingName={canEditLoaded ? editingSuggestion.name : null} onUpdateSuggestion={updateSuggestion} />
         </div>
       </section>
 

@@ -234,34 +234,65 @@ app.get('/api/maps/:id/custom-comps', (req, res) => {
   res.json(db.customComps.filter((c) => c.map === req.params.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
 });
 
+const canEditSuggestion = (c, username) => c.createdBy === username || isAdmin(username);
+
+// Valida uma sugestão (nova ou editada). excludeId = a própria sugestão, na edição.
+// Sem duplicatas no mesmo mapa: nem nome repetido, nem a mesma comp (agentes + players) de novo.
+async function checkSuggestion(mapId, body, excludeId = null) {
+  const slots = Array.isArray(body.slots) ? body.slots : (body.agents || []).map((agent) => ({ agent, player: '' }));
+  const agents = slots.map((s) => s?.agent);
+  if (!(await validAgents(agents))) return { status: 400, error: 'Escolha 5 agentes diferentes' };
+  const players = slots.map((s) => s.player).filter(Boolean);
+  if (players.some((p) => !PLAYER_NAMES.has(p)) || new Set(players).size !== players.length) {
+    return { status: 400, error: 'Players inválidos ou repetidos' };
+  }
+  const name = str(body.name, 60) || 'Comp sugerida';
+  const others = db.customComps.filter((c) => c.map === mapId && c.id !== excludeId);
+  const sameName = others.find((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+  if (sameName) {
+    return { status: 409, error: `Já existe uma comp chamada "${name}" neste mapa.`, conflictId: sameName.id };
+  }
+  const key = (list) => list.map((s) => `${s.agent}:${s.player || ''}`).sort().join('|');
+  const dup = others.find((c) => key(c.slots || c.agents.map((agent) => ({ agent, player: '' }))) === key(slots));
+  if (dup) return { status: 409, error: `Essa comp já foi salva como "${dup.name}".` };
+  return {
+    name,
+    notes: str(body.notes, 1000),
+    agents,
+    slots: slots.map((s) => ({ agent: s.agent, player: PLAYER_NAMES.has(s.player) ? s.player : '' })),
+  };
+}
+
+// Editar uma sugestão (trocar players, agentes, nome, observações). Só quem criou ou o admin.
+app.put('/api/custom-comps/:id', wrap(async (req, res) => {
+  const c = db.customComps.find((x) => x.id === req.params.id);
+  if (!c) return res.status(404).json({ error: 'Comp não encontrada' });
+  if (!canEditSuggestion(c, req.user)) return forbidden(res, 'Só quem criou (ou o admin) pode alterar esta comp');
+  const r = await checkSuggestion(c.map, req.body, c.id);
+  if (r.error) return res.status(r.status).json({ error: r.error, conflictId: r.conflictId });
+  Object.assign(c, r, { updatedBy: req.user, updatedAt: new Date().toISOString() });
+  save();
+  res.json(c);
+}));
+
 // Qualquer um salva/sugere comps. Pode vir só com agentes ou já com os players de cada slot.
 app.post('/api/maps/:id/custom-comps', wrap(async (req, res) => {
   const map = await findMap(req.params.id);
   if (!map) return res.status(404).json({ error: 'Mapa não encontrado' });
-  const slots = Array.isArray(req.body.slots) ? req.body.slots : (req.body.agents || []).map((agent) => ({ agent, player: '' }));
-  const agents = slots.map((s) => s.agent);
-  if (!(await validAgents(agents))) return bad(res, 'Escolha 5 agentes diferentes');
-  const players = slots.map((s) => s.player).filter(Boolean);
-  if (players.some((p) => !PLAYER_NAMES.has(p)) || new Set(players).size !== players.length) {
-    return bad(res, 'Players inválidos ou repetidos');
+  const r = await checkSuggestion(map.id, req.body);
+  if (r.error) {
+    const conflict = r.conflictId && db.customComps.find((c) => c.id === r.conflictId);
+    return res.status(r.status).json({
+      error: r.error + (conflict ? (canEditSuggestion(conflict, req.user) ? '' : ' Escolha outro nome.') : ''),
+      conflictId: r.conflictId,
+      canOverwrite: !!(conflict && canEditSuggestion(conflict, req.user)),
+    });
   }
-  // Sem duplicatas no mesmo mapa: nem nome repetido, nem a mesma comp (agentes + players) de novo.
-  const name = str(req.body.name, 60) || 'Comp sugerida';
-  const sameMap = db.customComps.filter((c) => c.map === map.id);
-  if (sameMap.some((c) => c.name.trim().toLowerCase() === name.toLowerCase())) {
-    return res.status(409).json({ error: `Já existe uma comp chamada "${name}" neste mapa. Escolha outro nome.` });
-  }
-  const key = (list) => list.map((s) => `${s.agent}:${s.player || ''}`).sort().join('|');
-  const dup = sameMap.find((c) => key(c.slots || c.agents.map((agent) => ({ agent, player: '' }))) === key(slots));
-  if (dup) return res.status(409).json({ error: `Essa comp já foi salva como "${dup.name}".` });
 
   const comp = {
     id: newId(),
     map: map.id,
-    name,
-    notes: str(req.body.notes, 1000),
-    agents,
-    slots: slots.map((s) => ({ agent: s.agent, player: PLAYER_NAMES.has(s.player) ? s.player : '' })),
+    ...r,
     createdBy: req.user,
     createdAt: new Date().toISOString(),
   };
@@ -286,6 +317,32 @@ app.get('/api/team-comps', (req, res) => {
   const list = req.query.map ? db.teamComps.filter((c) => c.map === req.query.map) : db.teamComps;
   res.json([...list].sort((a, b) => (a.confirmedAt < b.confirmedAt ? 1 : -1)));
 });
+
+// Toda comp padrão também fica nas sugestões do mapa (o contrário não: sugestão só vira padrão pelo admin).
+// Não duplica se a mesma comp (agentes + players) já estiver lá; se o nome já existir, ganha um sufixo.
+function addDefaultToSuggestions(comp) {
+  const key = (slots) => slots.map((s) => `${s.agent}:${s.player || ''}`).sort().join('|');
+  const sameMap = db.customComps.filter((c) => c.map === comp.map);
+  const target = key(comp.slots);
+  if (sameMap.some((c) => key(c.slots || c.agents.map((agent) => ({ agent, player: '' }))) === target)) return;
+
+  const base = comp.name || `Padrão ${new Date(comp.confirmedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`;
+  const taken = new Set(sameMap.map((c) => c.name.trim().toLowerCase()));
+  let name = base;
+  for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base} (${i})`;
+
+  db.customComps.push({
+    id: newId(),
+    map: comp.map,
+    name: name.slice(0, 60),
+    notes: comp.notes || '',
+    agents: comp.slots.map((s) => s.agent),
+    slots: comp.slots.map((s) => ({ agent: s.agent, player: s.player })),
+    createdBy: comp.confirmedBy,
+    createdAt: comp.confirmedAt,
+    fromDefault: true,
+  });
+}
 
 // Só o admin define a comp padrão (evita cada um trocar por conta própria).
 app.post('/api/maps/:id/team-comp', wrap(async (req, res) => {
@@ -312,6 +369,7 @@ app.post('/api/maps/:id/team-comp', wrap(async (req, res) => {
     confirmedAt: new Date().toISOString(),
   };
   db.teamComps.push(comp);
+  addDefaultToSuggestions(comp);
   save();
   res.status(201).json(comp);
 }));
@@ -451,6 +509,18 @@ app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(DIST, 'index.html
 
 // Carrega os dados (arquivo local ou MongoDB) antes de aceitar conexões.
 dbStore.init().then(() => {
+  // Migração única: padrões confirmadas antes desta regra entram nas sugestões.
+  // Roda uma vez só, para não recolocar uma sugestão que o admin apagou de propósito.
+  if (!db.migrations?.defaultsToSuggestions) {
+    const before = db.customComps.length;
+    const latest = {};
+    for (const c of db.teamComps) if (!latest[c.map] || latest[c.map].confirmedAt < c.confirmedAt) latest[c.map] = c;
+    Object.values(latest).forEach(addDefaultToSuggestions);
+    db.migrations = { ...db.migrations, defaultsToSuggestions: true };
+    console.log(`[db] ${db.customComps.length - before} comp(s) padrão adicionada(s) às sugestões`);
+    save();
+  }
+
   const server = app.listen(PORT, () => {
     console.log(`Comps rodando em http://localhost:${PORT}`);
     // Aquece o cache das APIs para o primeiro acesso ser rápido.

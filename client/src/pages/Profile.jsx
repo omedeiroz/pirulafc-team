@@ -5,6 +5,7 @@ import { useData } from '../data.jsx';
 import { AgentIcon, Avatar, Empty, Loading, ResultBadge, RoleDot, useFeedback, useFetch } from '../components/ui.jsx';
 import ImageCropper, { IMAGE_SIZES } from '../components/ImageCropper.jsx';
 import { RankBadge } from '../components/Rank.jsx';
+import ActStats from '../components/ActStats.jsx';
 import { aggregateStats, fmtDate, latestByMap, matchResult, record, resizeImage, ROLES } from '../utils.js';
 
 const MAX_ROLES = 2;
@@ -17,6 +18,7 @@ export default function Profile() {
   const p = person(username);
   const isMe = username === me.username;
   const isCoach = p?.teamRole === 'coach';
+  const [rankKey, setRankKey] = useState(0); // muda ao clicar em Atualizar, para recarregar o elo do topo
 
   const tournaments = useFetch('/api/tournaments');
   const teamComps = useFetch('/api/team-comps');
@@ -26,7 +28,7 @@ export default function Profile() {
 
   return (
     <>
-      <ProfileHeader p={p} isMe={isMe} isCoach={isCoach} onChanged={reloadBoot} />
+      <ProfileHeader p={p} isMe={isMe} isCoach={isCoach} onChanged={reloadBoot} rankKey={rankKey} />
 
       <div className="profile-grid">
         {!isCoach && <RolesCard p={p} isMe={isMe} options={roleOptions} onChanged={reloadBoot} />}
@@ -42,6 +44,12 @@ export default function Profile() {
         </section>
       ) : (
         <>
+          {p.riotId && (
+            <section className="section">
+              <ActStats key={`${p.username}-${p.riotId}-${p.region}`} username={p.username} canRefresh={isMe}
+                onRefreshed={() => setRankKey((k) => k + 1)} />
+            </section>
+          )}
           <section className="section">
             <h2>Agente por mapa</h2>
             <p className="muted small" style={{ marginTop: 0 }}>Das comps confirmadas pelo time (a mais recente de cada mapa).</p>
@@ -58,7 +66,7 @@ export default function Profile() {
 }
 
 // ---------- Banner + foto + nome ----------
-function ProfileHeader({ p, isMe, isCoach, onChanged }) {
+function ProfileHeader({ p, isMe, isCoach, onChanged, rankKey = 0 }) {
   const { notify } = useFeedback();
   const [busy, setBusy] = useState(null);
   const [cropping, setCropping] = useState(null); // { kind, file } enquanto a janela de recorte está aberta
@@ -127,7 +135,7 @@ function ProfileHeader({ p, isMe, isCoach, onChanged }) {
           </div>
           {!isCoach && p.riotId && (
             <div style={{ marginTop: '.5rem' }}>
-              <RankBadge key={`${p.riotId}-${p.region}`} username={p.username} />
+              <RankBadge key={`${p.riotId}-${p.region}-${rankKey}`} username={p.username} />
             </div>
           )}
         </div>

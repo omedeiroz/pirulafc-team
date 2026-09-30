@@ -1,7 +1,8 @@
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, data = {}) {
     super(message);
     this.status = status;
+    this.data = data; // corpo da resposta (ex.: retryInMs no 429)
   }
 }
 
@@ -16,7 +17,7 @@ async function request(method, url, body) {
   if (res.status === 401 && url !== '/api/login' && url !== '/api/me') {
     window.dispatchEvent(new Event('unauthorized'));
   }
-  if (!res.ok) throw new ApiError(res.status, data.error || 'Erro inesperado');
+  if (!res.ok) throw new ApiError(res.status, data.error || 'Erro inesperado', data);
   return data;
 }
 

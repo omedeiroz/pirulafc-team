@@ -261,6 +261,22 @@ td .agents-row { flex-wrap: nowrap; }
 .warn-bar { background: rgba(245,196,81,.12); border-bottom: 1px solid rgba(245,196,81,.35); color: var(--yellow); text-align: center; padding: .5rem 16px; font-size: .9rem; }
 .warn-bar a { color: var(--yellow); font-weight: 600; text-decoration: underline; }
 .card-warn { border-color: rgba(245,196,81,.45); }
+/* Ranked do ato */
+.act-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+.act-kpis b.kda-num { font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-kpis b small { font-size: .95rem; }
+@media (max-width: 860px) { .act-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.act-kpis > div { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: .7rem .8rem; }
+.act-kpis b { display: block; font: 700 1.45rem Rajdhani, sans-serif; line-height: 1.1; }
+.act-kpis span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .4px; }
+.top-agent {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: .9rem; padding: .9rem;
+  border-radius: 10px; border: 1px solid var(--line); background: linear-gradient(90deg, rgba(255,70,85,.10), var(--bg-2) 55%);
+}
+.top-agent-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: .15rem; }
+.top-agent-name { font: 700 1.6rem Rajdhani, sans-serif; text-transform: uppercase; line-height: 1; }
+.top-agent-info .row { gap: .9rem; }
+.other-agents { display: flex; flex-direction: column; gap: .35rem; }
 /* Elo */
 .rank-badge { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; }
 .rank-badge img { width: 34px; height: 34px; object-fit: contain; }

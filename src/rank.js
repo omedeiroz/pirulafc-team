@@ -21,32 +21,37 @@ function tierIcons() {
   });
 }
 
+// Erro com mensagem para mostrar ao usuário (conta não encontrada, chave inválida…).
 class RankError extends Error {}
 
-async function fetchMmr(region, name, tag) {
+// GET na HenrikDev com a chave do .env. Traduz os erros comuns.
+async function henrikGet(pathAndQuery) {
   const key = process.env.HENRIKDEV_API_KEY;
-  if (!key) throw new RankError('Elo indisponível: configure HENRIKDEV_API_KEY no .env do servidor');
-  const url = `${API}/v3/mmr/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
-  const res = await fetch(url, { headers: { Authorization: key }, signal: AbortSignal.timeout(15000) });
+  if (!key) throw new RankError('Indisponível: configure HENRIKDEV_API_KEY no .env do servidor');
+  const res = await fetch(`${API}${pathAndQuery}`, { headers: { Authorization: key }, signal: AbortSignal.timeout(20000) });
   const body = await res.json().catch(() => ({}));
   if (res.status === 404) {
     // 404 também acontece quando a conta existe mas não jogou nada recente
     throw new RankError(body.errors?.[0]?.code === 24
-      ? 'A conta precisa jogar uma partida recente para o elo aparecer'
+      ? 'A conta precisa jogar uma partida recente para os dados aparecerem'
       : 'Riot ID não encontrado nessa região');
   }
-  if (res.status === 429) throw new Error('Limite da HenrikDev atingido, tente em 1 minuto');
+  if (res.status === 429) throw new RankError('Muitas consultas à HenrikDev agora. Tente de novo em 1 minuto');
   if (res.status === 401 || res.status === 403) throw new RankError('Chave da HenrikDev inválida');
   if (!res.ok) throw new Error(`HenrikDev ${res.status}`);
-  return body.data;
+  return body;
+}
+
+async function fetchMmr(region, name, tag) {
+  return (await henrikGet(`/v3/mmr/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`)).data;
 }
 
 // { riotId, region, current: {tier, name, rr, lastChange, icon}, peak: {...}, gamesNeeded } ou { error }
-async function getRank({ riotId, region }) {
+async function getRank({ riotId, region }, force = false) {
   const [name, tag] = riotId.split('#');
   try {
     const [d, icons] = await Promise.all([
-      cached(`rank:${region}:${riotId.toLowerCase()}`, RANK_TTL, () => fetchMmr(region, name, tag)),
+      cached(`rank:${region}:${riotId.toLowerCase()}`, RANK_TTL, () => fetchMmr(region, name, tag), force),
       tierIcons().catch(() => ({})),
     ]);
     const tier = (t) => t && { tier: t.id, name: tierPt(t.name), icon: icons[t.id] || null };
@@ -69,4 +74,4 @@ function parseRiotId(value) {
   return m ? `${m[1].trim()}#${m[2]}` : null;
 }
 
-module.exports = { getRank, parseRiotId, REGIONS };
+module.exports = { getRank, parseRiotId, henrikGet, RankError, REGIONS };
