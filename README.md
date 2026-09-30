@@ -72,22 +72,37 @@ Os dados do time (comps, campeonatos) ficam em `data/db.json`. **Faça backup de
 O site fica no ar enquanto o seu PC estiver ligado e os dois comandos rodando.
 
 ```powershell
-winget install --id Cloudflare.cloudflared      # uma vez só
-$env:TRUST_PROXY=1; npm run prod                # terminal 1: compila e sobe em :3000
-cloudflared tunnel --url http://localhost:3000  # terminal 2: mostra o link https://xxxx.trycloudflare.com
+npm run publicar   # compila, sobe o servidor e abre o túnel (baixa o cloudflared na 1ª vez)
 ```
 
-Mande o link `trycloudflare.com` para o time. O link muda toda vez que o túnel reinicia; para um endereço fixo, crie um túnel nomeado numa conta Cloudflare com domínio próprio.
+Pare o `npm run dev` antes, porque os dois usam a porta 3000. Mande o link `https://xxxx.trycloudflare.com` que aparecer para o time.
+O túnel precisa de saída na porta **7844** (UDP ou TCP); redes corporativas costumam bloquear essa porta. Nesse caso, rode de uma rede de casa. O link muda toda vez que o túnel reinicia; para um endereço fixo, crie um túnel nomeado numa conta Cloudflare com domínio próprio.
 
-### Opção B: hospedagem 24h (ex.: Railway)
+### Opção B: 24h grátis com Render + MongoDB Atlas
 
-1. Suba o projeto para um repositório **privado** no GitHub. O `.env` e a pasta `data/` ficam de fora.
-2. Crie o serviço a partir do repositório. Build: `npm run build`. Start: `npm start`.
-3. Adicione um **volume** (disco persistente) montado em `/data`.
-4. Variáveis de ambiente: `DATA_DIR=/data`, `TRUST_PROXY=1`, `HENRIKDEV_API_KEY=...`.
-5. Gere o domínio público nas configurações do serviço.
+O plano grátis do Render não tem disco persistente, então os dados e as fotos ficam no MongoDB Atlas (grátis, 512 MB).
+Com `MONGODB_URI` definida, o site usa o Mongo; sem ela, usa os arquivos em `data/` (como no `npm run dev`).
 
-Sem volume, as comps, os campeonatos e as fotos somem a cada deploy.
+**1. MongoDB Atlas**
+1. Crie uma conta em [mongodb.com/atlas](https://www.mongodb.com/atlas) e um cluster **Free (M0)**.
+2. Em *Database Access*, crie um usuário com senha.
+3. Em *Network Access*, libere `0.0.0.0/0`. O Render não tem IP fixo no plano grátis; o acesso continua protegido pela senha do usuário do banco.
+4. Em *Connect → Drivers*, copie a string `mongodb+srv://usuario:senha@...` e troque `<password>` pela senha.
+
+**2. Levar os dados atuais para o Atlas** (uma vez, no seu PC)
+```powershell
+# adicione ao .env: MONGODB_URI=mongodb+srv://...
+npm run migrar
+```
+Depois de migrar, tire o `MONGODB_URI` do `.env` local se quiser que o `npm run dev` continue usando os arquivos em `data/`.
+
+**3. Render**
+1. Crie uma conta em [render.com](https://render.com) entrando com o GitHub.
+2. *New → Blueprint* e escolha o repositório. O `render.yaml` já configura build, start e health check.
+3. Quando pedir, cole `MONGODB_URI` e `HENRIKDEV_API_KEY`.
+4. Quando o deploy terminar, o link fica em `https://<nome>.onrender.com`.
+
+No plano grátis, o site dorme após ~15 min sem acesso; o primeiro acesso depois disso leva uns 50 s. Cada push na `main` gera um deploy novo automaticamente.
 
 ## Trocar senha
 

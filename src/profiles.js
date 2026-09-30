@@ -1,6 +1,4 @@
 // Perfis: funções preferidas (máx. 2), agentes favoritos (máx. 3), foto e banner.
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const rank = require('./rank');
@@ -21,10 +19,10 @@ function imageExt(buf) {
   return null;
 }
 
-module.exports = function profiles({ db, save, dataDir, users, roleOf, agentNames, wrap }) {
-  const uploadDir = path.join(dataDir, 'uploads');
-  fs.mkdirSync(uploadDir, { recursive: true });
+const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
 
+// files: { put, get, del } do db.js (arquivo local ou MongoDB).
+module.exports = function profiles({ db, save, files, users, roleOf, agentNames, wrap }) {
   const get = (username) => (db.profiles[username] ||= { roles: [], favoriteAgents: [], avatar: null, banner: null });
   const fileUrl = (file) => (file ? `/api/uploads/${file}` : null);
 
@@ -46,7 +44,7 @@ module.exports = function profiles({ db, save, dataDir, users, roleOf, agentName
   }
 
   function removeFile(file) {
-    if (file) fs.rm(path.join(uploadDir, file), { force: true }, () => {});
+    if (file) files.del(file).catch((err) => console.warn('[upload] não removeu', file, err.message));
   }
 
   const router = express.Router();
@@ -99,7 +97,7 @@ module.exports = function profiles({ db, save, dataDir, users, roleOf, agentName
   // Upload da foto/banner: o corpo é o arquivo bruto (o front já redimensiona antes de mandar).
   router.put('/profiles/me/:kind',
     express.raw({ type: ['image/*', 'application/octet-stream'], limit: MAX_UPLOAD }),
-    (req, res) => {
+    async (req, res) => {
       const { kind } = req.params;
       if (!IMAGE_KINDS.includes(kind)) return res.status(404).json({ error: 'Tipo inválido' });
       const buf = Buffer.isBuffer(req.body) ? req.body : null;
@@ -108,8 +106,7 @@ module.exports = function profiles({ db, save, dataDir, users, roleOf, agentName
 
       const file = `${req.user}-${kind}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
       try {
-        fs.mkdirSync(uploadDir, { recursive: true }); // garante a pasta mesmo se foi apagada com o servidor rodando
-        fs.writeFileSync(path.join(uploadDir, file), buf);
+        await files.put(file, buf);
       } catch (err) {
         console.error('[upload]', err);
         return res.status(500).json({ error: 'Não foi possível salvar a imagem no servidor' });
@@ -131,13 +128,17 @@ module.exports = function profiles({ db, save, dataDir, users, roleOf, agentName
     res.json(publicProfile(req.user));
   });
 
-  router.get('/uploads/:file', (req, res) => {
+  router.get('/uploads/:file', wrap(async (req, res) => {
     const { file } = req.params;
-    if (!/^[a-z0-9_.-]+$/i.test(file) || file.includes('..')) return res.status(400).end();
+    const ext = file.split('.').pop();
+    if (!/^[a-z0-9_.-]+$/i.test(file) || file.includes('..') || !MIME[ext]) return res.status(400).end();
+    const buf = await files.get(file);
+    if (!buf) return res.status(404).end();
+    res.setHeader('Content-Type', MIME[ext]);
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable'); // nome muda a cada upload
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.sendFile(path.join(uploadDir, file), (err) => err && !res.headersSent && res.status(404).end());
-  });
+    res.end(buf);
+  }));
 
   return { router, publicProfile, ROLE_OPTIONS, REGIONS: rank.REGIONS };
 };

@@ -8,7 +8,8 @@ const express = require('express');
 const USERS = require('./src/users');
 const spike = require('./src/spike');
 const valorant = require('./src/valorant');
-const { data: db, save, newId, DATA_DIR } = require('./src/db');
+const dbStore = require('./src/db');
+const { data: db, save, newId } = dbStore;
 const createProfiles = require('./src/profiles');
 
 const PORT = process.env.PORT || 3000;
@@ -102,6 +103,9 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Health check da hospedagem (sem login).
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 app.use('/api', (req, res, next) => {
   const username = readToken(getCookie(req, 'session'));
   if (!username) return res.status(401).json({ error: 'Não autenticado' });
@@ -137,7 +141,7 @@ async function validAgents(agents) {
 
 // ---------- Perfis (funções, favoritos, foto, banner) ----------
 
-const profiles = createProfiles({ db, save, dataDir: DATA_DIR, users: USERS, roleOf, agentNames, wrap });
+const profiles = createProfiles({ db, save, files: dbStore.files, users: USERS, roleOf, agentNames, wrap });
 app.use('/api', profiles.router);
 
 // ---------- Básico ----------
@@ -418,8 +422,24 @@ app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(DIST, 'index.html
   if (err) res.status(404).send('Front-end não compilado. Rode "npm run build" ou use "npm run dev".');
 }));
 
-app.listen(PORT, () => {
-  console.log(`Comps rodando em http://localhost:${PORT}`);
-  // Aquece o cache das APIs para o primeiro acesso ser rápido.
-  Promise.all([spike.maps(), valorant.agents(), valorant.mapImages()]).catch((e) => console.warn('[api] aquecimento falhou:', e.message));
+// Carrega os dados (arquivo local ou MongoDB) antes de aceitar conexões.
+dbStore.init().then(() => {
+  const server = app.listen(PORT, () => {
+    console.log(`Comps rodando em http://localhost:${PORT}`);
+    // Aquece o cache das APIs para o primeiro acesso ser rápido.
+    Promise.all([spike.maps(), valorant.agents(), valorant.mapImages()]).catch((e) => console.warn('[api] aquecimento falhou:', e.message));
+  });
+
+  // Hospedagens (Render etc.) mandam SIGTERM antes de desligar: grava o que estiver pendente.
+  const shutdown = (signal) => {
+    console.log(`[server] ${signal}: salvando e encerrando…`);
+    server.close();
+    dbStore.close().finally(() => process.exit(0));
+    setTimeout(() => process.exit(0), 8000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}).catch((err) => {
+  console.error('[db] não foi possível carregar os dados:', err.message);
+  process.exit(1);
 });

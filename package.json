@@ -9,13 +9,16 @@
     "build": "vite build",
     "start": "node server.js",
     "hash-password": "node scripts/hash-password.js",
-    "prod": "vite build && node server.js"
+    "prod": "vite build && node server.js",
+    "publicar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publicar.ps1",
+    "migrar": "node scripts/migrate-to-mongo.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "express": "^4.21.2",
+    "mongodb": "^7.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-easy-crop": "^5.5.7",

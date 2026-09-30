@@ -1,0 +1,19 @@
+# Blueprint do Render: New → Blueprint → escolha este repositório.
+# Os dados ficam no MongoDB Atlas (o disco do plano grátis do Render é apagado a cada deploy).
+services:
+  - type: web
+    name: pirulafc-team
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: MONGODB_URI
+        sync: false # você cola a string de conexão do Atlas no painel do Render
+      - key: HENRIKDEV_API_KEY
+        sync: false # você cola a chave da HenrikDev no painel do Render

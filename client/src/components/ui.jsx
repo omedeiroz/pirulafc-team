@@ -24,10 +24,12 @@ export function AgentsRow({ agents, size = '' }) {
 export function Avatar({ username, size = 32 }) {
   const { person } = useData();
   const p = person(username);
+  const [broken, setBroken] = useState(null); // URL da imagem que falhou ao carregar
   const initials = (p?.name || username || '?').slice(0, 2).toUpperCase();
+  const showImg = p?.avatar && broken !== p.avatar;
   return (
     <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.38 }} title={p?.name}>
-      {p?.avatar ? <img src={p.avatar} alt="" /> : initials}
+      {showImg ? <img src={p.avatar} alt="" onError={() => setBroken(p.avatar)} /> : initials}
     </span>
   );
 }
