@@ -1,0 +1,29 @@
+{
+  "name": "comps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Site do time de Valorant: comps por mapa, agentes por player e histórico de campeonatos",
+  "main": "server.js",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c red,cyan \"node --watch server.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server.js",
+    "hash-password": "node scripts/hash-password.js",
+    "prod": "vite build && node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-easy-crop": "^5.5.7",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.2.0",
+    "concurrently": "^9.2.4",
+    "vite": "^7.3.6"
+  }
+}
