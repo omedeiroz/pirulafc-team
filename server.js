@@ -12,6 +12,7 @@ const dbStore = require('./src/db');
 const { data: db, save, newId } = dbStore;
 const createProfiles = require('./src/profiles');
 const { exportBackup, importBackup } = require('./src/backup');
+const createStrategies = require('./src/strategies');
 
 const PORT = process.env.PORT || 3000;
 const SESSION_DAYS = 30;
@@ -27,7 +28,12 @@ if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PRO
 // JSON pequeno em tudo; só a importação de backup (que traz as fotos) aceita arquivo maior.
 const smallJson = express.json({ limit: '200kb' });
 const backupJson = express.json({ limit: '30mb' });
-app.use((req, res, next) => (req.path === '/api/admin/backup' ? backupJson : smallJson)(req, res, next));
+const boardJson = express.json({ limit: '1mb' }); // estratégias: desenhos livres ocupam mais
+app.use((req, res, next) => {
+  if (req.path === '/api/admin/backup') return backupJson(req, res, next);
+  if (/^\/api\/(strategies\/|maps\/[\w-]+\/strategies)/.test(req.path)) return boardJson(req, res, next);
+  return smallJson(req, res, next);
+});
 
 // ---------- Autenticação (token assinado em cookie httpOnly) ----------
 
@@ -147,6 +153,20 @@ async function validAgents(agents) {
 
 const profiles = createProfiles({ db, save, files: dbStore.files, users: USERS, roleOf, agentNames, wrap });
 app.use('/api', profiles.router);
+
+// ---------- Estratégias (quadro estilo Valoplant) ----------
+
+const strategies = createStrategies({ db, save, newId, isAdmin, playerNames: PLAYER_NAMES, agentNames, findMap, wrap });
+app.use('/api', strategies.router);
+
+// Minimapa e callouts do mapa (valorant-api) para o quadro.
+app.get('/api/maps/:id/board', wrap(async (req, res) => {
+  const map = await findMap(req.params.id);
+  if (!map) return res.status(404).json({ error: 'Mapa não encontrado' });
+  const board = await valorant.mapBoard(map.name);
+  if (!board) return res.status(404).json({ error: 'Minimapa não disponível para este mapa' });
+  res.json(board);
+}));
 
 // ---------- Backup (só admin): baixar tudo / importar de outro lugar ----------
 

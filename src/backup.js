@@ -21,7 +21,7 @@ function validateBackup(b) {
   if (!b || b.app !== 'comps' || b.version !== VERSION || typeof b.data !== 'object') {
     throw new Error('Arquivo não é um backup válido deste site');
   }
-  for (const k of ['customComps', 'teamComps', 'tournaments']) {
+  for (const k of ['customComps', 'teamComps', 'tournaments', 'strategies']) {
     if (b.data[k] !== undefined && !Array.isArray(b.data[k])) throw new Error(`Backup corrompido (${k})`);
   }
   for (const k of ['profiles', 'passwords']) {
@@ -42,6 +42,7 @@ async function importBackup(data, backup, putFile) {
   data.customComps ||= [];
   data.teamComps ||= [];
   data.tournaments ||= [];
+  data.strategies ||= [];
   data.profiles ||= {};
   data.passwords ||= {};
   return {

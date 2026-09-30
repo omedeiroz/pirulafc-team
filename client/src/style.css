@@ -373,3 +373,84 @@ td .agents-row { flex-wrap: nowrap; }
   .stats-grid .h { display: none; }
   .map-hero h1 { font-size: 2.2rem; }
 }
+
+/* ================= Estratégias (quadro estilo Valoplant) ================= */
+.board-wrap { position: relative; width: 100%; max-width: 820px; margin: 0 auto; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0b131b; }
+.board-svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.board-svg.tool-select .board-item { cursor: grab; }
+.board-svg.tool-select .board-item:active { cursor: grabbing; }
+.board-svg.tool-place, .board-svg.tool-arrow, .board-svg.tool-line, .board-svg.tool-pen, .board-svg.tool-text { cursor: crosshair; }
+.board-svg.tool-erase { cursor: not-allowed; }
+.board-svg.tool-erase .board-item:hover { opacity: .45; }
+.board-minimap { opacity: .92; }
+.board-callout { font: 600 15px Inter, sans-serif; fill: rgba(236,232,225,.72); text-anchor: middle; dominant-baseline: middle; pointer-events: none; paint-order: stroke; stroke: rgba(11,19,27,.85); stroke-width: 4px; }
+.board-label { font: 700 17px Inter, sans-serif; fill: #fff; text-anchor: middle; paint-order: stroke; stroke: #0b131b; stroke-width: 5px; pointer-events: none; }
+.board-text { font: 700 28px Inter, sans-serif; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #0b131b; stroke-width: 7px; }
+.board-sel { fill: none; stroke: #fff; stroke-width: 2.5; stroke-dasharray: 6 5; }
+
+.board-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-bottom: .6rem; padding: .5rem; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.tool-btn { padding: .4rem .6rem; font-size: .78rem; gap: .3rem; }
+.tool-btn.on { background: var(--red); border-color: var(--red); color: #fff; }
+.tool-icon { font-size: 1rem; line-height: 1; }
+.tool-sep { width: 1px; height: 26px; background: var(--line); margin: 0 .2rem; }
+.tool-check { display: inline-flex; align-items: center; gap: .3rem; margin: 0; text-transform: none; letter-spacing: 0; font-size: .82rem; color: var(--muted); cursor: pointer; }
+.tool-check input { width: auto; }
+.color-dot { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+.color-dot.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg); }
+.board-footer { margin-top: .5rem; justify-content: flex-start; }
+
+.phase-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: 1rem 0 .7rem; }
+.phase-tab { padding: .45rem .8rem; font-size: .82rem; }
+.phase-tab.active { background: var(--card-2); border-color: var(--red); color: var(--text); }
+.phase-tab.add { border-style: dashed; }
+.phase-num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--bg); font-size: .72rem; margin-right: .25rem; }
+.phase-tab.active .phase-num { background: var(--red); color: #fff; }
+.phase-edit { margin-top: .6rem; }
+
+.strat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1.2rem; align-items: start; }
+.strat-side { display: flex; flex-direction: column; gap: 1rem; }
+.strat-side h3 { font-size: .95rem; text-transform: uppercase; margin-bottom: .6rem; }
+.strat-name-input { font: 700 1.8rem Rajdhani, sans-serif; text-transform: uppercase; padding: .35rem .6rem; margin-bottom: .4rem; }
+.strat-meta { margin-bottom: .2rem; padding: .7rem 1rem; }
+.strat-meta .row { gap: .35rem; }
+.tag-btn { text-transform: none; letter-spacing: 0; font: 500 .8rem Inter, sans-serif; }
+.tag-btn.on { background: rgba(255,70,85,.15); border-color: var(--red); }
+
+.palette .pal-agents { display: flex; flex-direction: column; gap: .45rem; }
+.pal-agent-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.pal-agent { padding: .25rem .5rem .25rem .25rem; text-transform: none; letter-spacing: 0; font-family: Inter, sans-serif; gap: .4rem; border-color: rgba(79,163,255,.5); }
+.pal-agent.enemy { border-color: rgba(255,70,85,.6); padding: .25rem; }
+.pal-agent.on { background: var(--card-2); box-shadow: 0 0 0 2px var(--yellow); }
+.pal-abilities { display: flex; gap: .3rem; }
+.pal-ability { width: 34px; height: 34px; padding: 4px; border-radius: 50%; background: var(--bg); justify-content: center; }
+.pal-ability img { width: 100%; height: 100%; object-fit: contain; }
+.pal-ability.on { box-shadow: 0 0 0 2px var(--yellow); }
+
+.assign-edit { display: flex; flex-direction: column; gap: .5rem; }
+.assign-row { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.assign-row input { grid-column: 1 / -1; }
+.assign-row select, .assign-row input { padding: .4rem .5rem; font-size: .85rem; }
+.assign-view { display: flex; flex-direction: column; gap: .6rem; }
+.assign-view-row { display: flex; gap: .6rem; align-items: flex-start; }
+
+.strat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+.strat-card { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); color: var(--text); transition: transform .15s, border-color .15s; }
+.strat-card:hover { transform: translateY(-2px); border-color: var(--red); text-decoration: none; }
+.strat-thumb { aspect-ratio: 1 / 1; background: #0b131b; pointer-events: none; }
+.strat-card-body { padding: .7rem .8rem .8rem; display: flex; flex-direction: column; gap: .3rem; }
+.strat-card-name { font: 700 1.15rem Rajdhani, sans-serif; text-transform: uppercase; }
+
+.palette-top { display: none; margin-bottom: .6rem; }
+@media (max-width: 1000px) {
+  .strat-layout { grid-template-columns: 1fr; }
+  /* No celular a paleta fica acima do quadro (sem rolar entre escolher e colocar). */
+  .palette-top { display: block; }
+  .palette-side { display: none; }
+  .palette-top .pal-agents { flex-direction: row; flex-wrap: wrap; }
+  .phase-edit input { max-width: none !important; flex: 1 1 100% !important; }
+}
+@media (max-width: 860px) {
+  .strat-name-input { font-size: 1.4rem; }
+  .tool-btn { padding: .45rem .5rem; }
+  .strat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+}

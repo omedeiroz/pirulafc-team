@@ -6,6 +6,10 @@ Site do time de Valorant para organizar comps por mapa, definir quem joga qual a
 
 - **Login fixo** (sem cadastro). Os usuários ficam em `src/users.js`, com a senha guardada como hash. Quem tem `role: 'coach'` (hoje o Gbzin) acessa e gerencia tudo, mas não entra nas comps nem no K/D/A.
 - **Mapas e comps**: rotação atual, comps do meta pro e montador de comp (agente + player). A comp confirmada fica salva, com histórico.
+- **Estratégias** (em cada mapa, botão "Estratégias"): quadro estilo Valoplant.
+  - Minimapa oficial com callouts, agentes (nossos e inimigos), habilidades, spike, setas, linhas, lápis e texto.
+  - Várias fases por jogada, desfazer/refazer, girar o mapa e "quem faz o quê".
+  - Todos criam; quem criou ou o admin edita; só o admin marca como **padrão do time** (★). Uma padrão só pode ser alterada pelo admin; os outros podem **duplicar** e editar a cópia.
 - **Campeonatos**: nome, link, organizador, colocação e partidas (mapa, placar, VOD, K/D/A/ACS por player).
 - **Jogadores**: agente de cada player em cada mapa e estatísticas somadas de todos os campeonatos.
 - **Perfil** (`/perfil`, ou `/jogadores/<usuario>` para ver o de outra pessoa):

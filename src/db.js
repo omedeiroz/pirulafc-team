@@ -12,6 +12,7 @@ function withDefaults(d) {
   d.customComps ||= [];
   d.teamComps ||= [];
   d.tournaments ||= [];
+  d.strategies ||= []; // quadros de estratégia por mapa
   d.profiles ||= {}; // username -> { roles, favoriteAgents, avatar, banner, riotId, region }
   d.passwords ||= {}; // username -> hash "salt:hash" (senha trocada pelo próprio usuário; substitui a de users.js)
   return d;

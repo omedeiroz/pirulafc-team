@@ -52,6 +52,7 @@ export default function MapDetail() {
   const events = useFetch('/api/vct-events');
   const meta = useFetch(`/api/maps/${id}/meta?scope=${scope}${refreshKey ? `&refresh=1&k=${refreshKey}` : ''}`);
   const custom = useFetch(`/api/maps/${id}/custom-comps`);
+  const strategies = useFetch(`/api/maps/${id}/strategies`);
   const byRole = (agents) => [...agents].sort((a, b) => ROLES.indexOf(role(a)) - ROLES.indexOf(role(b)));
 
   const loadHistory = async () => {
@@ -187,7 +188,13 @@ export default function MapDetail() {
       <Link className="back" to="/mapas">← Todos os mapas</Link>
       <div className="map-hero" style={map.splash ? { backgroundImage: `url('${map.splash}')` } : undefined}>
         <span className={`badge ${map.inRotation ? 'on' : ''}`}>{map.inRotation ? 'Na rotação' : 'Fora da rotação'}</span>
-        <h1 style={{ marginTop: '.5rem' }}>{map.name}</h1>
+        <div className="row" style={{ alignItems: 'flex-end', marginTop: '.5rem' }}>
+          <h1 style={{ margin: 0 }}>{map.name}</h1>
+          <span className="spacer" />
+          <Link className="btn btn-primary" to={`/mapas/${id}/estrategias`}>
+            Estratégias{strategies.data ? ` (${strategies.data.length})` : ''} →
+          </Link>
+        </div>
       </div>
 
       {/* ---------- Comp atual ---------- */}

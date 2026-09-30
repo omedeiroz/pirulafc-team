@@ -10,6 +10,8 @@ import Tournaments from './pages/Tournaments.jsx';
 import TournamentDetail from './pages/TournamentDetail.jsx';
 import Players from './pages/Players.jsx';
 import Profile from './pages/Profile.jsx';
+import Strategies from './pages/Strategies.jsx';
+import StrategyEditor from './pages/StrategyEditor.jsx';
 
 export default function App() {
   const [me, setMe] = useState(undefined); // undefined = verificando sessão
@@ -63,6 +65,9 @@ export default function App() {
           <Route path="/" element={<Navigate to="/mapas" replace />} />
           <Route path="/mapas" element={<Maps />} />
           <Route path="/mapas/:id" element={<MapDetail />} />
+          <Route path="/mapas/:id/estrategias" element={<Strategies />} />
+          <Route path="/mapas/:id/estrategias/nova" element={<StrategyEditor />} />
+          <Route path="/mapas/:id/estrategias/:sid" element={<StrategyEditor />} />
           <Route path="/campeonatos" element={<Tournaments />} />
           <Route path="/campeonatos/:id" element={<TournamentDetail />} />
           <Route path="/jogadores" element={<Players />} />
