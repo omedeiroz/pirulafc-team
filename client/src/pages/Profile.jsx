@@ -33,6 +33,7 @@ export default function Profile() {
         <FavoritesCard p={p} isMe={isMe} agents={agents} onChanged={reloadBoot} />
         {!isCoach && (isMe || p.riotId) && <RiotIdCard p={p} isMe={isMe} regions={regions} onChanged={reloadBoot} />}
         {isMe && <PasswordCard />}
+        {isMe && me.admin && <BackupCard />}
       </div>
 
       {isCoach ? (
@@ -195,6 +196,57 @@ function PasswordCard() {
           <button className="btn-primary btn-sm" disabled={!valid || busy}>{busy ? 'Salvando…' : 'Trocar senha'}</button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ---------- Backup (só admin): baixar tudo / importar ----------
+function BackupCard() {
+  const { notify, confirm } = useFeedback();
+  const [busy, setBusy] = useState(false);
+  const input = useRef(null);
+
+  const importFile = async (file) => {
+    if (!file) return;
+    let backup;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch {
+      return notify('Esse arquivo não é um backup válido', true);
+    }
+    const d = backup?.data || {};
+    const ok = await confirm(
+      `Importar o backup de ${backup?.exportedAt ? new Date(backup.exportedAt).toLocaleString('pt-BR') : '?'}? ` +
+      `Ele SUBSTITUI tudo que está no site (${d.teamComps?.length || 0} comps, ${d.customComps?.length || 0} sugestões, ` +
+      `${d.tournaments?.length || 0} campeonatos, perfis e senhas).`
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const s = await api.post('/api/admin/backup', backup);
+      notify(`Importado: ${s.comps} comps, ${s.suggestions} sugestões, ${s.tournaments} campeonatos, ${s.images} imagens.`);
+      // As senhas vieram do backup: recarrega (pode pedir login de novo, com a senha do backup).
+      setTimeout(() => window.location.assign('/perfil'), 1500);
+    } catch (e) {
+      notify(e.message, true);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Backup dos dados</h3></div>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        Comps, sugestões, campeonatos, perfis, fotos e senhas num arquivo só. Guarde em lugar seguro: ele tem os hashes das senhas.
+      </p>
+      <div className="row">
+        <a className="btn btn-sm" href="/api/admin/backup" download>Baixar backup</a>
+        <button className="btn-sm btn-danger" disabled={busy} onClick={() => input.current.click()}>
+          {busy ? 'Importando…' : 'Importar backup…'}
+        </button>
+      </div>
+      <input ref={input} type="file" accept="application/json,.json" hidden
+        onChange={(e) => { importFile(e.target.files[0]); e.target.value = ''; }} />
     </div>
   );
 }

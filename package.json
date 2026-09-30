@@ -11,10 +11,11 @@
     "hash-password": "node scripts/hash-password.js",
     "prod": "vite build && node server.js",
     "publicar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publicar.ps1",
-    "migrar": "node scripts/migrate-to-mongo.js"
+    "migrar": "node scripts/migrate-to-mongo.js",
+    "exportar": "node scripts/export-backup.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20 <25"
   },
   "dependencies": {
     "express": "^4.21.2",

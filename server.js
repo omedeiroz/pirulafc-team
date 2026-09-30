@@ -11,6 +11,7 @@ const valorant = require('./src/valorant');
 const dbStore = require('./src/db');
 const { data: db, save, newId } = dbStore;
 const createProfiles = require('./src/profiles');
+const { exportBackup, importBackup } = require('./src/backup');
 
 const PORT = process.env.PORT || 3000;
 const SESSION_DAYS = 30;
@@ -23,7 +24,10 @@ const app = express();
 app.disable('x-powered-by');
 // Atrás de túnel/hospedagem (Cloudflare, Railway…): usa o IP real do visitante no limite de tentativas de login.
 if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
-app.use(express.json({ limit: '200kb' }));
+// JSON pequeno em tudo; só a importação de backup (que traz as fotos) aceita arquivo maior.
+const smallJson = express.json({ limit: '200kb' });
+const backupJson = express.json({ limit: '30mb' });
+app.use((req, res, next) => (req.path === '/api/admin/backup' ? backupJson : smallJson)(req, res, next));
 
 // ---------- Autenticação (token assinado em cookie httpOnly) ----------
 
@@ -143,6 +147,29 @@ async function validAgents(agents) {
 
 const profiles = createProfiles({ db, save, files: dbStore.files, users: USERS, roleOf, agentNames, wrap });
 app.use('/api', profiles.router);
+
+// ---------- Backup (só admin): baixar tudo / importar de outro lugar ----------
+
+app.get('/api/admin/backup', wrap(async (req, res) => {
+  if (!isAdmin(req.user)) return forbidden(res, 'Só o admin pode baixar o backup');
+  await dbStore.flush();
+  const backup = await exportBackup(db, dbStore.files.get);
+  res.setHeader('Content-Disposition', `attachment; filename="backup-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json(backup);
+}));
+
+app.post('/api/admin/backup', async (req, res) => {
+  if (!isAdmin(req.user)) return forbidden(res, 'Só o admin pode importar backup');
+  try {
+    const summary = await importBackup(db, req.body, dbStore.files.put);
+    save();
+    await dbStore.flush();
+    console.log('[backup] importado por', req.user, summary);
+    res.json(summary);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 // ---------- Básico ----------
 
@@ -441,5 +468,9 @@ dbStore.init().then(() => {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }).catch((err) => {
   console.error('[db] não foi possível carregar os dados:', err.message);
+  if (process.env.MONGODB_URI && /alert number 80|ServerSelection|timed out/i.test(`${err.name} ${err.message}`)) {
+    console.error('[db] Dica: no MongoDB Atlas, vá em Network Access e libere 0.0.0.0/0 (o Render não tem IP fixo). ' +
+      'Confira também usuário/senha no MONGODB_URI.');
+  }
   process.exit(1);
 });
