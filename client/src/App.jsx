@@ -77,7 +77,11 @@ export default function App() {
 
 function Shell({ me, onLogout, children }) {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // Chaves de propósito: scrollTo devolve uma Promise nos navegadores novos, e o React
+  // trataria esse retorno como função de limpeza (quebrava a tela logo após o login).
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return (
     <>
       <header className="topbar">

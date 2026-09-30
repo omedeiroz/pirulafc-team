@@ -332,7 +332,9 @@ function RolesCard({ p, isMe, options, onChanged }) {
   const { notify } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [sel, setSel] = useState(p.roles);
-  useEffect(() => setSel(p.roles), [p.roles]);
+  useEffect(() => {
+    setSel(p.roles);
+  }, [p.roles]);
 
   const toggle = (r) => setSel(sel.includes(r) ? sel.filter((x) => x !== r) : sel.length < MAX_ROLES ? [...sel, r] : sel);
   const save = async () => {
@@ -385,7 +387,9 @@ function FavoritesCard({ p, isMe, agents, onChanged }) {
   const { notify } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [sel, setSel] = useState(p.favoriteAgents);
-  useEffect(() => setSel(p.favoriteAgents), [p.favoriteAgents]);
+  useEffect(() => {
+    setSel(p.favoriteAgents);
+  }, [p.favoriteAgents]);
 
   const toggle = (a) => setSel(sel.includes(a) ? sel.filter((x) => x !== a) : sel.length < MAX_FAVS ? [...sel, a] : sel);
   const save = async () => {
